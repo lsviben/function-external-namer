@@ -4,16 +4,20 @@ A [Crossplane] Composition Function template, for Go.
 
 ## What does it do?
 
-The function just goes through the desired resources, and sets their
-[external-resource-annotation] to the name of the resource. This is useful
-if users want to control the name of the resource created in the external
-system.
+The function just goes through the desired resources, and sets the 
+[external-name-annotation] to the `metadata.name` of the resource.
 
 If the resource already has an external name annotation, it will not be
 overwritten. 
 
-If the resource does not have a name, it will be skipped and Crossplane
-will generate a name for it.
+If the resource does not have a `metadata.name`, it will be skipped and 
+Crossplane will generate a name for it.
+
+## Future work
+
+For now, this function only works with the `metadata.name` field. In the future,
+it would be good to support other fields, or even fields from different 
+resources.
 
 ## Developing this Function
 
@@ -22,13 +26,10 @@ since we'd like Functions to have a less heavyweight developer experience.
 It mostly relies on regular old Go tools:
 
 ```shell
-# Run code generation - see input/generate.go
-$ go generate ./...
 
 # Run tests
-$ go test -cover ./...
-?       github.com/crossplane/function-template-go/input/v1beta1      [no test files]
-ok      github.com/crossplane/function-template-go    0.006s  coverage: 25.8% of statements
+go test -cover ./...
+ok  	github.com/crossplane/function-external-namer	0.019s	coverage: 58.3% of statements
 
 # Lint the code
 $ docker run --rm -v $(pwd):/app -v ~/.cache/golangci-lint/v1.54.2:/root/.cache -w /app golangci/golangci-lint:v1.54.2 golangci-lint run
@@ -46,70 +47,72 @@ https://github.com/upbound/up/.
 You can try your function out locally using [`xrender`][xrender]. With `xrender`
 you can run a Function pipeline on your laptop.
 
-First you'll need to create a `functions.yaml` file. This tells `xrender` what
-Functions to run, and how. In this case we want to run the Function you're
-developing in 'Development mode'. That pretty much means you'll run the Function
-manually and tell `xrender` where to find it.
-
-```yaml
----
-apiVersion: pkg.crossplane.io/v1beta1
-kind: Function
-metadata:
-  name: function-external-namer # Use your Function's name!
-  annotations:
-    # xrender will try to talk to your Function at localhost:9443
-    xrender.crossplane.io/runtime: Development
-    xrender.crossplane.io/runtime-development-target: localhost:9443
-```
-
-Next, run the Function locally:
-
-```shell
-# Run your Function in insecure mode
-go run . --insecure --debug
-```
-
-Once your Function is running, in another window you can use `xrender`.
-
 ```shell
 # Install xrender
 $ go install github.com/crossplane-contrib/xrender@latest
 
-# Run it! See the xrender repo for these examples.
-$ xrender examples/xr.yaml examples/composition.yaml examples/functions.yaml
+# Run it! 
+$ xrender manifests/definition.yaml manifests/composition.yaml manigests/functions.yaml
 ---
-apiVersion: nopexample.org/v1
-kind: XBucket
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
 metadata:
-  name: test-xrender
-status:
-  bucketRegion: us-east-2
+  name: xnopresources.nop.example.org
 ---
-apiVersion: s3.aws.upbound.io/v1beta1
-kind: Bucket
+apiVersion: nop.crossplane.io/v1alpha1
+kind: NopResource
 metadata:
   annotations:
-    crossplane.io/composition-resource-name: my-bucket
-  generateName: test-xrender-
+    crossplane.io/composition-resource-name: no-name
+  generateName: xnopresources.nop.example.org-
   labels:
-    crossplane.io/composite: test-xrender
+    crossplane.io/composite: xnopresources.nop.example.org
   ownerReferences:
-  - apiVersion: nopexample.org/v1
+  - apiVersion: apiextensions.crossplane.io/v1
     blockOwnerDeletion: true
     controller: true
-    kind: XBucket
-    name: test-xrender
+    kind: CompositeResourceDefinition
+    name: xnopresources.nop.example.org
     uid: ""
-spec:
-  forProvider:
-    region: us-east-2
+---
+apiVersion: nop.crossplane.io/v1alpha1
+kind: NopResource
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: annotated
+    crossplane.io/external-name: annotated
+  generateName: xnopresources.nop.example.org-
+  labels:
+    crossplane.io/composite: xnopresources.nop.example.org
+  name: named
+  ownerReferences:
+  - apiVersion: apiextensions.crossplane.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: CompositeResourceDefinition
+    name: xnopresources.nop.example.org
+    uid: ""
+---
+apiVersion: nop.crossplane.io/v1alpha1
+kind: NopResource
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: named
+    crossplane.io/external-name: named
+  generateName: xnopresources.nop.example.org-
+  labels:
+    crossplane.io/composite: xnopresources.nop.example.org
+  name: named
+  ownerReferences:
+  - apiVersion: apiextensions.crossplane.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: CompositeResourceDefinition
+    name: xnopresources.nop.example.org
+    uid: ""
 ```
-
-You can see an example Composition above. There's also some examples in the
-`xrender` repo's examples directory.
 
 
 [Crossplane]: https://crossplane.io
-[external-resource-annotation]: https://docs.crossplane.io/v1.13/concepts/managed-resources/#naming-external-resources
+[external-name-annotation]: https://docs.crossplane.io/v1.13/concepts/managed-resources/#naming-external-resources
 [xrender]: https://github.com/crossplane-contrib/xrender

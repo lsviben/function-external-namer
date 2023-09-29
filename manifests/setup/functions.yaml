@@ -1,0 +1,14 @@
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: Function
+metadata:
+  name: function-external-namer
+spec:
+  package: index.docker.io/lsviben/function-external-namer:v0.1.0
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: Function
+metadata:
+  name: function-dummy
+spec:
+  package: index.docker.io/lsviben/function-dummy:v0.2.0
