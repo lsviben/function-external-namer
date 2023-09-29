@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/crossplane/function-sdk-go/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -12,7 +13,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 
 	fnv1beta1 "github.com/crossplane/function-sdk-go/proto/v1beta1"
-	"github.com/crossplane/function-sdk-go/resource"
 	"github.com/crossplane/function-sdk-go/response"
 )
 
@@ -32,25 +32,144 @@ func TestRunFunction(t *testing.T) {
 		args   args
 		want   want
 	}{
-		"ResponseIsReturned": {
-			reason: "The Function should return a fatal result if no input was specified",
+		"SetExternalName": {
+			reason: "Should set the external name annotation of the resource to its meta.name.",
 			args: args{
 				req: &fnv1beta1.RunFunctionRequest{
-					Meta: &fnv1beta1.RequestMeta{Tag: "hello"},
-					Input: resource.MustStructJSON(`{
-						"apiVersion": "dummy.fn.crossplane.io",
-						"kind": "Input",
-						"example": "Hello, world!"
-					}`),
+					Meta:     &fnv1beta1.RequestMeta{Tag: "hello"},
+					Observed: &fnv1beta1.State{},
+					Desired: &fnv1beta1.State{
+						Resources: map[string]*fnv1beta1.Resource{
+							"ready-composed-resource": {
+								Resource: resource.MustStructJSON(`{
+									"apiVersion": "test.crossplane.io/v1",
+									"kind": "TestNamer",
+									"metadata": {
+										"name": "my-test-namer"
+									}
+								}`),
+							},
+						},
+					},
 				},
 			},
 			want: want{
 				rsp: &fnv1beta1.RunFunctionResponse{
 					Meta: &fnv1beta1.ResponseMeta{Tag: "hello", Ttl: durationpb.New(response.DefaultTTL)},
+					Desired: &fnv1beta1.State{
+						Resources: map[string]*fnv1beta1.Resource{
+							"ready-composed-resource": {
+								Resource: resource.MustStructJSON(`{
+									"apiVersion": "test.crossplane.io/v1",
+									"kind": "TestNamer",
+									"metadata": {
+										"name": "my-test-namer",
+                                        "annotations": {
+ 										   "crossplane.io/external-name": "my-test-namer"
+										}	
+									}
+								}`),
+							},
+						},
+					},
 					Results: []*fnv1beta1.Result{
 						{
 							Severity: fnv1beta1.Severity_SEVERITY_NORMAL,
-							Message:  "I was run with input \"Hello, world!\"",
+							Message:  "External names added successfully",
+						},
+					},
+				},
+			},
+		},
+		"DontSetExternalNameAlreadySet": {
+			reason: "Should not set the external name annotation of the resource to its meta.name if it is already set.",
+			args: args{
+				req: &fnv1beta1.RunFunctionRequest{
+					Meta:     &fnv1beta1.RequestMeta{Tag: "hello"},
+					Observed: &fnv1beta1.State{},
+					Desired: &fnv1beta1.State{
+						Resources: map[string]*fnv1beta1.Resource{
+							"ready-composed-resource": {
+								Resource: resource.MustStructJSON(`{
+									"apiVersion": "test.crossplane.io/v1",
+									"kind": "TestNamer",
+									"metadata": {
+										"name": "my-test-namer",
+                                        "annotations": {
+ 										   "crossplane.io/external-name": "existing"
+										}	
+									}
+								}`),
+							},
+						},
+					},
+				},
+			},
+			want: want{
+				rsp: &fnv1beta1.RunFunctionResponse{
+					Meta: &fnv1beta1.ResponseMeta{Tag: "hello", Ttl: durationpb.New(response.DefaultTTL)},
+					Desired: &fnv1beta1.State{
+						Resources: map[string]*fnv1beta1.Resource{
+							"ready-composed-resource": {
+								Resource: resource.MustStructJSON(`{
+									"apiVersion": "test.crossplane.io/v1",
+									"kind": "TestNamer",
+									"metadata": {
+										"name": "my-test-namer",
+                                        "annotations": {
+ 										   "crossplane.io/external-name": "existing"
+										}	
+									}
+								}`),
+							},
+						},
+					},
+					Results: []*fnv1beta1.Result{
+						{
+							Severity: fnv1beta1.Severity_SEVERITY_NORMAL,
+							Message:  "External names added successfully",
+						},
+					},
+				},
+			},
+		},
+		"DontSetExternalNameEmpty": {
+			reason: "Should not set the external name annotation of the resource to its meta.name the meta.name is empty",
+			args: args{
+				req: &fnv1beta1.RunFunctionRequest{
+					Meta:     &fnv1beta1.RequestMeta{Tag: "hello"},
+					Observed: &fnv1beta1.State{},
+					Desired: &fnv1beta1.State{
+						Resources: map[string]*fnv1beta1.Resource{
+							"ready-composed-resource": {
+								Resource: resource.MustStructJSON(`{
+									"apiVersion": "test.crossplane.io/v1",
+									"kind": "TestNamer",
+									"metadata": {}
+								}`),
+							},
+						},
+					},
+				},
+			},
+			want: want{
+				rsp: &fnv1beta1.RunFunctionResponse{
+					Meta: &fnv1beta1.ResponseMeta{Tag: "hello", Ttl: durationpb.New(response.DefaultTTL)},
+					Desired: &fnv1beta1.State{
+						Resources: map[string]*fnv1beta1.Resource{
+							"ready-composed-resource": {
+								Resource: resource.MustStructJSON(`{
+									"apiVersion": "test.crossplane.io/v1",
+									"kind": "TestNamer",
+									"metadata": {}
+								}`),
+							},
+						},
+					},
+					Results: []*fnv1beta1.Result{
+						{
+							Severity: fnv1beta1.Severity_SEVERITY_NORMAL,
+							Message:  "External names added successfully",
 						},
 					},
 				},
