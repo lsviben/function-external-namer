@@ -26,10 +26,14 @@ spec:
                   kind: NopResource
                   metadata:
                     name: named
+                  spec:
+                    forProvider: {}
               no-name:
                 resource:
                   apiVersion: nop.crossplane.io/v1alpha1
                   kind: NopResource
+                  spec:
+                    forProvider: {}
               annotated:
                 resource:
                   apiVersion: nop.crossplane.io/v1alpha1
@@ -38,6 +42,8 @@ spec:
                     name: named
                     annotations:
                       crossplane.io/external-name: annotated
+                  spec:
+                    forProvider: {}
     - step: external-namer
       functionRef:
         name: function-external-namer
