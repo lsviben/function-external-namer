@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/pkg/meta"
+	"github.com/crossplane/function-sdk-go/errors"
+	"github.com/crossplane/function-sdk-go/request"
 
 	fnv1beta1 "github.com/crossplane/function-sdk-go/proto/v1beta1"
-	"github.com/crossplane/function-sdk-go/request"
 	"github.com/crossplane/function-sdk-go/response"
-
-	"github.com/crossplane/function-template-go/input/v1beta1"
 )
 
 // Function returns whatever response you ask it to.
@@ -31,23 +30,34 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	// with unmodified.
 	rsp := response.To(req, response.DefaultTTL)
 
-	// Input is supplied by the author of a Composition when they choose to run
-	// your Function. Input is arbitrary, except that it must be a KRM-like
-	// object. Supporting input is also optional - if you don't need to you can
-	// delete this, and delete the input directory.
-	in := &v1beta1.Input{}
-	if err := request.GetInput(req, in); err != nil {
-		response.Fatal(rsp, errors.Wrapf(err, "cannot get Function input from %T", req))
+	desired, err := request.GetDesiredComposedResources(req)
+	if err != nil {
+		response.Fatal(rsp, errors.Wrapf(err, "cannot get desired composed resources from %T", req))
 		return rsp, nil
 	}
 
-	// TODO: Add your Function logic here!
-	//
-	// Take a look at function-sdk-go for some utilities for working with req
-	// and rsp - https://pkg.go.dev/github.com/crossplane/function-sdk-go
-	//
-	// Also, be sure to look at the tips in README.md
-	response.Normalf(rsp, "I was run with input %q", in.Example)
+	f.log.Debug("Found desired resources", "count", len(desired))
+
+	// Our goal is to set the external name annotation of each resource to its
+	// meta.name, if set. If the external name annotation is already set, we
+	// should not overwrite it.
+	for _, dr := range desired {
+		if dr.Resource.GetName() == "" {
+			continue
+		}
+		if _, ok := dr.Resource.GetAnnotations()[meta.AnnotationKeyExternalName]; ok {
+			continue
+		}
+
+		meta.AddAnnotations(dr.Resource, map[string]string{meta.AnnotationKeyExternalName: dr.Resource.GetName()})
+	}
+
+	if err := response.SetDesiredComposedResources(rsp, desired); err != nil {
+		response.Fatal(rsp, errors.Wrapf(err, "cannot set desired composed resources from %T", req))
+		return rsp, nil
+	}
+
+	response.Normalf(rsp, "External names added successfully")
 
 	return rsp, nil
 }
