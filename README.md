@@ -48,51 +48,75 @@ https://github.com/upbound/up/.
 You can try your function out locally using [`xrender`][xrender]. With `xrender`
 you can run a Function pipeline on your laptop.
 
+`manifests/composition.yaml`
+```yaml
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xnopresources.nop.example.org
+spec:
+  compositeTypeRef:
+    apiVersion: nop.example.org/v1alpha1
+    kind: XNopResource
+  mode: Pipeline
+  pipeline:
+    - step: be-a-dummy
+      functionRef:
+        name: function-dummy
+      input:
+        apiVersion: dummy.fn.crossplane.io/v1beta1
+        kind: Response
+        # This is a YAML-serialized RunFunctionResponse. function-dummy will
+        # overlay the desired state on any that was passed into it.
+        response:
+          desired:
+            resources:
+              named: # Will set the annotation based on the metadata.name
+                resource:
+                  apiVersion: nop.crossplane.io/v1alpha1
+                  kind: NopResource
+                  metadata:
+                    name: named
+                  spec:
+                    forProvider: {}
+              no-name: # Won't set the annotation based on the metadata.name because its empty
+                resource:
+                  apiVersion: nop.crossplane.io/v1alpha1
+                  kind: NopResource
+                  spec:
+                    forProvider: {}
+              annotated: # Won't set the annotation based on the metadata.name because its already set
+                resource:
+                  apiVersion: nop.crossplane.io/v1alpha1
+                  kind: NopResource
+                  metadata:
+                    name: isannotated
+                    annotations:
+                      crossplane.io/external-name: annotated
+                  spec:
+                    forProvider: {}
+    - step: external-namer
+      functionRef:
+        name: function-external-namer
+```
+
 ```shell
 # Install xrender
 $ go install github.com/crossplane-contrib/xrender@latest
 
 # Run it! 
-$ xrender manifests/definition.yaml manifests/composition.yaml manigests/functions.yaml
+$ xrender manifests/definition.yaml manifests/composition.yaml manifests/functions.yaml
 ---
 apiVersion: apiextensions.crossplane.io/v1
 kind: CompositeResourceDefinition
 metadata:
   name: xnopresources.nop.example.org
 ---
-apiVersion: nop.crossplane.io/v1alpha1
-kind: NopResource
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
 metadata:
-  annotations:
-    crossplane.io/composition-resource-name: no-name
-  generateName: xnopresources.nop.example.org-
-  labels:
-    crossplane.io/composite: xnopresources.nop.example.org
-  ownerReferences:
-  - apiVersion: apiextensions.crossplane.io/v1
-    blockOwnerDeletion: true
-    controller: true
-    kind: CompositeResourceDefinition
-    name: xnopresources.nop.example.org
-    uid: ""
----
-apiVersion: nop.crossplane.io/v1alpha1
-kind: NopResource
-metadata:
-  annotations:
-    crossplane.io/composition-resource-name: annotated
-    crossplane.io/external-name: annotated
-  generateName: xnopresources.nop.example.org-
-  labels:
-    crossplane.io/composite: xnopresources.nop.example.org
-  name: named
-  ownerReferences:
-  - apiVersion: apiextensions.crossplane.io/v1
-    blockOwnerDeletion: true
-    controller: true
-    kind: CompositeResourceDefinition
-    name: xnopresources.nop.example.org
-    uid: ""
+  name: xnopresources.nop.example.org
 ---
 apiVersion: nop.crossplane.io/v1alpha1
 kind: NopResource
@@ -104,13 +128,29 @@ metadata:
   labels:
     crossplane.io/composite: xnopresources.nop.example.org
   name: named
-  ownerReferences:
-  - apiVersion: apiextensions.crossplane.io/v1
-    blockOwnerDeletion: true
-    controller: true
-    kind: CompositeResourceDefinition
-    name: xnopresources.nop.example.org
-    uid: ""
+...
+---
+apiVersion: nop.crossplane.io/v1alpha1
+kind: NopResource
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: no-name
+  generateName: xnopresources.nop.example.org-
+  labels:
+    crossplane.io/composite: xnopresources.nop.example.org
+...
+---
+apiVersion: nop.crossplane.io/v1alpha1
+kind: NopResource
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: annotated
+    crossplane.io/external-name: annotated
+  generateName: xnopresources.nop.example.org-
+  labels:
+    crossplane.io/composite: xnopresources.nop.example.org
+  name: isannotated
+...
 ```
 
 

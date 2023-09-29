@@ -20,7 +20,7 @@ spec:
         response:
           desired:
             resources:
-              named:
+              named: # Will set the annotation based on the metadata.name
                 resource:
                   apiVersion: nop.crossplane.io/v1alpha1
                   kind: NopResource
@@ -28,13 +28,13 @@ spec:
                     name: named
                   spec:
                     forProvider: {}
-              no-name:
+              no-name: # Won't set the annotation based on the metadata.name because its empty
                 resource:
                   apiVersion: nop.crossplane.io/v1alpha1
                   kind: NopResource
                   spec:
                     forProvider: {}
-              annotated:
+              annotated: # Won't set the annotation based on the metadata.name because its already set
                 resource:
                   apiVersion: nop.crossplane.io/v1alpha1
                   kind: NopResource
