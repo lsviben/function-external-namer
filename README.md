@@ -8,7 +8,8 @@ The function just goes through the desired resources, and sets the
 [external-name-annotation] to the `metadata.name` of the resource.
 
 If the resource already has an external name annotation, it will not be
-overwritten. 
+overwritten. This is important to avoid creating a new resource with a different
+name, if it already exists.
 
 If the resource does not have a `metadata.name`, it will be skipped and 
 Crossplane will generate a name for it.
